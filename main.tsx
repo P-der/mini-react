@@ -6,5 +6,4 @@
 
 import ReactDom from "./core/react-dom"
 import App from './app.jsx'
-console.log(App)
 ReactDom.createRoot(document.getElementById('root')).render(App)
