@@ -55,6 +55,26 @@ function updateDomProps(dom, props) {
         }
     })
 }
+function initChildren(fiber) {
+    const {props} = fiber
+    let preChild:FiberNode
+    props.children?.forEach((child, index) => {
+        const childFiber:FiberNode = {
+            type: child.type,
+            props: child.props,
+            dom: null,
+            parent: fiber,
+            sibling: null,
+            child: null
+        }
+        if(index === 0) {
+            fiber.child = childFiber   
+        }else {
+            preChild.sibling = childFiber
+        }
+        preChild = childFiber
+    })
+}
 // 真实创建dom
 function render(el:VDom, parent) {
     nextWorkOfUnit = {
@@ -81,41 +101,29 @@ function workloop(deadline) {
     requestIdleCallback(workloop)
 }
 // task具体执行 1 2 原操作；3 4 生成下一个task
-function performWorkOfUnit(work) {
-    const {type, props, parent} = work
+function performWorkOfUnit(fiber) {
+    const {type, props, parent} = fiber
     // 1 创建dom
-    if(!work.dom) {
-       work.dom = createRealNode(type)
+    if(!fiber.dom) {
+        fiber.dom = createRealNode(type)
+        parent.dom.appendChild(fiber.dom)
+        // 2 更新prop
+        updateDomProps(fiber.dom, props)
     }
-    work.parent.dom.appendChild(work.dom)
-    // 2 更新prop
-    updateDomProps(work.dom, props)
+    
     // 3 遍历children
-    let preChild:FiberNode
-    props.children?.forEach((child, index) => {
-        const newChild:FiberNode = {
-            type: child.type,
-            props: child.props,
-            dom: null,
-            parent,
-            sibling: null,
-            child: null
+    initChildren(fiber)
+    // 4 返回下一个fiber
+    fiber.next = (deep = false) => {
+        if(!deep && fiber.child) {
+            return fiber.child
         }
-        if(index === 0) {
-            work.child = newChild   
-        }else {
-            preChild.sibling = newChild
+        if(fiber.sibling) {
+            return fiber.sibling
         }
-        preChild = child
-    })
-    // 4 返回下一个work
-    if(work.child) {
-        return work.child
+        return fiber?.parent?.sibling || fiber?.parent?.next?.(true)
     }
-    if(work.sibling) {
-        return work.sibling
-    }
-    return work?.parent?.sibling
+    return fiber.next()
 }
 
 
