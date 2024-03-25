@@ -17,6 +17,7 @@ interface FiberNode {
     parent?: FiberNode;
 }
 let nextWorkOfUnit:null | FiberNode = null
+let root: null | FiberNode = null
 
 function createTextNode(text) {
     return {
@@ -78,15 +79,12 @@ function initChildren(fiber) {
 // 真实创建dom
 function render(el:VDom, parent) {
     nextWorkOfUnit = {
-        dom: null,
-        type: el.type,
-        props: el.props,
-        parent: {
-            dom: parent
-        },
-        child: null,
-        sibling: null
+        dom: parent,
+        props: {
+            children: [el]
+        }
     }
+    root = nextWorkOfUnit;
     // 开启执行
     requestIdleCallback(workloop)
 }
@@ -98,7 +96,20 @@ function workloop(deadline) {
         nextWorkOfUnit = performWorkOfUnit(nextWorkOfUnit)
         shouldYield = deadline.timeRemaining() < 1
     }
+    if(!nextWorkOfUnit) {
+        commitRoot()
+    }
     requestIdleCallback(workloop)
+}
+function commitRoot()  {
+    commitWork(root?.child)
+    root = null
+}
+function commitWork(fiber) {
+    if(!fiber) return 
+    fiber.parent.dom?.appendChild(fiber.dom)
+    commitWork(fiber.child)
+    commitWork(fiber.sibling)
 }
 // task具体执行 1 2 原操作；3 4 生成下一个task
 function performWorkOfUnit(fiber) {
@@ -106,7 +117,7 @@ function performWorkOfUnit(fiber) {
     // 1 创建dom
     if(!fiber.dom) {
         fiber.dom = createRealNode(type)
-        parent.dom.appendChild(fiber.dom)
+        // parent.dom.appendChild(fiber.dom)
         // 2 更新prop
         updateDomProps(fiber.dom, props)
     }
