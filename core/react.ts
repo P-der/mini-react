@@ -107,21 +107,39 @@ function commitRoot()  {
 }
 function commitWork(fiber) {
     if(!fiber) return 
-    fiber.parent.dom?.appendChild(fiber.dom)
-    commitWork(fiber.child)
-    commitWork(fiber.sibling)
+    // let dom = fiber.parent.dom
+    // if(!dom) {
+    //     fiber = fiber.parent
+    // }
+    let nextChild = fiber
+    while(!nextChild.dom) {
+        nextChild = nextChild.child
+    }
+    fiber.parent.dom?.appendChild(nextChild.dom)
+    commitWork(nextChild.child)
+    commitWork(nextChild.sibling)
 }
-// task具体执行 1 2 原操作；3 4 生成下一个task
-function performWorkOfUnit(fiber) {
+function updateFunctionComponent(fiber) {
+    fiber.props.children = [fiber.type()]
+} 
+function updateHostComponent(fiber) {
     const {type, props, parent} = fiber
     // 1 创建dom
     if(!fiber.dom) {
         fiber.dom = createRealNode(type)
-        // parent.dom.appendChild(fiber.dom)
-        // 2 更新prop
-        updateDomProps(fiber.dom, props)
     }
-    
+}
+// task具体执行 1 2 原操作；3 4 生成下一个task
+function performWorkOfUnit(fiber) {
+    const {type, props, parent} = fiber
+    const isFunctionComponent =  typeof type === 'function'
+    if(isFunctionComponent) {
+        updateFunctionComponent(fiber)
+    }else {
+        updateHostComponent(fiber)
+    }
+    // 2 更新prop
+    updateDomProps(fiber.dom, props)
     // 3 遍历children
     initChildren(fiber)
     // 4 返回下一个fiber
