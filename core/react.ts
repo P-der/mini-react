@@ -1,6 +1,7 @@
 enum NodeType {
     TEXT_NODE = 'text-node'
 }
+const SimpleTypeMap = ['string', 'number']
 interface VDom {
     type: string,
     props: {
@@ -34,7 +35,7 @@ function createElement(type, props,...children) {
         props: {
             ...props,
             children: children.map(child => {
-                const isSimpleType = ['string', 'number'].includes(typeof child)
+                const isSimpleType = SimpleTypeMap.includes(typeof child)
                 return isSimpleType ? createTextNode(child): child
             })
         }
@@ -108,17 +109,19 @@ function commitRoot()  {
 }
 function commitWork(fiber) {
     if(!fiber) return 
-    let nextChild = fiber
-    while(!nextChild.dom) {
-        nextChild = nextChild.child
+    if(fiber.dom) {
+        let fiberParent = fiber.parent
+        while(!fiberParent.dom) {
+            fiberParent = fiberParent.parent
+        }
+        fiberParent.dom?.appendChild(fiber.dom)
     }
-    fiber.parent.dom?.appendChild(nextChild.dom)
-    commitWork(nextChild.child)
-    commitWork(nextChild.sibling)
+   
+    commitWork(fiber.child)
+    commitWork(fiber.sibling)
 }
 function updateFunctionComponent(fiber) {
     fiber.props.children = [fiber.type(fiber.props)]
-    console.log(fiber.props.children)
 } 
 function updateHostComponent(fiber) {
     const {type, props = []} = fiber
