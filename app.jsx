@@ -3,10 +3,10 @@
 // const App =  () => <div>mini react learn</div>
 // export default App
 import React from './core/react.ts'
-const Test1 = () => {
+const Test1 = ({num}) => {
     return (
         <div>
-            test1
+            test1 {num}
         </div>
     )
 }
@@ -14,7 +14,7 @@ const Test = () => {
     return (
         <div className="abc">
             Test
-            <Test1/>
+            <Test1 num={10}/>
         </div>
     )
 }

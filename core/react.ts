@@ -33,9 +33,10 @@ function createElement(type, props,...children) {
         type, 
         props: {
             ...props,
-            children: children.map(child => 
-                typeof child === 'string' ? createTextNode(child): child
-            )
+            children: children.map(child => {
+                const isSimpleType = ['string', 'number'].includes(typeof child)
+                return isSimpleType ? createTextNode(child): child
+            })
         }
     }
 }
@@ -59,7 +60,7 @@ function updateDomProps(dom, props) {
 function initChildren(fiber) {
     const {props} = fiber
     let preChild:FiberNode
-    props.children?.forEach((child, index) => {
+    props?.children?.forEach((child, index) => {
         const childFiber:FiberNode = {
             type: child.type,
             props: child.props,
@@ -107,10 +108,6 @@ function commitRoot()  {
 }
 function commitWork(fiber) {
     if(!fiber) return 
-    // let dom = fiber.parent.dom
-    // if(!dom) {
-    //     fiber = fiber.parent
-    // }
     let nextChild = fiber
     while(!nextChild.dom) {
         nextChild = nextChild.child
@@ -120,13 +117,16 @@ function commitWork(fiber) {
     commitWork(nextChild.sibling)
 }
 function updateFunctionComponent(fiber) {
-    fiber.props.children = [fiber.type()]
+    fiber.props.children = [fiber.type(fiber.props)]
+    console.log(fiber.props.children)
 } 
 function updateHostComponent(fiber) {
-    const {type, props, parent} = fiber
+    const {type, props = []} = fiber
     // 1 创建dom
     if(!fiber.dom) {
         fiber.dom = createRealNode(type)
+        // 2 更新prop
+        updateDomProps(fiber.dom, props)
     }
 }
 // task具体执行 1 2 原操作；3 4 生成下一个task
@@ -138,8 +138,7 @@ function performWorkOfUnit(fiber) {
     }else {
         updateHostComponent(fiber)
     }
-    // 2 更新prop
-    updateDomProps(fiber.dom, props)
+
     // 3 遍历children
     initChildren(fiber)
     // 4 返回下一个fiber
