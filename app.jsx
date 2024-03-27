@@ -3,33 +3,24 @@
 // const App =  () => <div>mini react learn</div>
 // export default App
 import React from './core/react.ts'
-const Test1 = ({num}) => {
+let num = 10
+const {update} = React
+const Count = () => {
+    function handleClick() {
+        num ++
+        update()
+    }
     return (
         <div>
-            test1 {num}
+            count {num}
+            <button onClick={handleClick}>click</button>
         </div>
     )
 }
-const Test = () => {
-    return (
-        <div className="abc">
-            Test
-            <Test1 num={10}/>
-        </div>
-    )
-}
-const App = () =>( 
+const App = () => (
     <div id='app'>
         mini-react-learn
-        <Test></Test>
-        {/* <div>1
-            <div>1-1
-                <div>1-1-1</div>
-                <div>1-1-2</div>
-                <div>1-1-3</div>
-            </div>
-        </div>
-        <div>2</div> */}
+        <Count></Count>
     </div>
 )
 export default App 

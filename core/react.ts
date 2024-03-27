@@ -1,13 +1,17 @@
 enum NodeType {
     TEXT_NODE = 'text-node'
 }
-const SimpleTypeMap = ['string', 'number']
+const SimpleTypeMap = ['string', 'number', 'undefined']
 interface VDom {
     type: string,
     props: {
         children: VDom[],
         [prop: string]: any
     }
+}
+enum EffectTag {
+    UP_DATE = 'update',
+    PLACEMENT= 'placement'
 }
 interface FiberNode {
     type?: string;
@@ -16,15 +20,20 @@ interface FiberNode {
     sibling?: FiberNode | null;
     dom: Element | null;
     parent?: FiberNode;
+    alternate?: FiberNode; // 老的fiber节点
+    effectTag?: EffectTag; // 更新类型
 }
 let nextWorkOfUnit:null | FiberNode = null
 let root: null | FiberNode = null
+let currentRoot: null | FiberNode = null // 当前需要更新的root
 
+
+// 创建vdom使用
 function createTextNode(text) {
     return {
         type: NodeType.TEXT_NODE,
         props: {
-            nodeValue: text
+            nodeValue: text || ''
         }
     }
 }
@@ -41,6 +50,52 @@ function createElement(type, props,...children) {
         }
     }
 }
+
+// 创建fiber使用
+// 创建fiber子节点
+function initChildren(fiber) {
+    let oldFiber = fiber?.alternate?.child || {}
+    const {props} = fiber
+    let preChild:FiberNode
+    props?.children?.forEach((child, index) => {
+        let childFiber:FiberNode
+        const isSame = oldFiber?.type === child.type
+        if(isSame) {
+            childFiber = {
+                type: child.type,
+                props: child.props,
+                dom: oldFiber.dom,
+                parent: fiber,
+                sibling: null,
+                child: null,
+                alternate: oldFiber,
+                effectTag: EffectTag.UP_DATE
+            }
+        }else {
+            // 创建
+            childFiber = {
+                type: child.type,
+                props: child.props,
+                dom: null,
+                parent: fiber,
+                sibling: null,
+                child: null,
+                effectTag: EffectTag.PLACEMENT
+            }
+           
+        }
+        if(oldFiber) {
+            oldFiber = oldFiber.sibling
+        }
+        if(index === 0) {
+            fiber.child = childFiber   
+        }else {
+            preChild.sibling = childFiber
+        }
+        preChild = childFiber
+    })
+}
+// 创建dom节点
 function createRealNode(type) {
     switch(type) {
         case NodeType.TEXT_NODE: {
@@ -51,75 +106,20 @@ function createRealNode(type) {
         }
     }
 }
+// 设置dom属性
 function updateDomProps(dom, props) {
     Object.keys(props).forEach(prop=> {
         if(prop !== 'children') {
-            dom[prop] = props[prop]
+            if(prop.startsWith('on')) {
+                const eventType = prop.slice(2).toLowerCase()
+                dom.addEventListener(eventType, props[prop])
+            }else {
+                dom[prop] = props[prop]
+            }
         }
     })
 }
-function initChildren(fiber) {
-    const {props} = fiber
-    let preChild:FiberNode
-    props?.children?.forEach((child, index) => {
-        const childFiber:FiberNode = {
-            type: child.type,
-            props: child.props,
-            dom: null,
-            parent: fiber,
-            sibling: null,
-            child: null
-        }
-        if(index === 0) {
-            fiber.child = childFiber   
-        }else {
-            preChild.sibling = childFiber
-        }
-        preChild = childFiber
-    })
-}
-// 真实创建dom
-function render(el:VDom, parent) {
-    nextWorkOfUnit = {
-        dom: parent,
-        props: {
-            children: [el]
-        }
-    }
-    root = nextWorkOfUnit;
-    // 开启执行
-    requestIdleCallback(workloop)
-}
-
-
-function workloop(deadline) {
-    let shouldYield = false
-    while(!shouldYield && nextWorkOfUnit) {
-        nextWorkOfUnit = performWorkOfUnit(nextWorkOfUnit)
-        shouldYield = deadline.timeRemaining() < 1
-    }
-    if(!nextWorkOfUnit) {
-        commitRoot()
-    }
-    requestIdleCallback(workloop)
-}
-function commitRoot()  {
-    commitWork(root?.child)
-    root = null
-}
-function commitWork(fiber) {
-    if(!fiber) return 
-    if(fiber.dom) {
-        let fiberParent = fiber.parent
-        while(!fiberParent.dom) {
-            fiberParent = fiberParent.parent
-        }
-        fiberParent.dom?.appendChild(fiber.dom)
-    }
-   
-    commitWork(fiber.child)
-    commitWork(fiber.sibling)
-}
+// 根据不同类型处理组件
 function updateFunctionComponent(fiber) {
     fiber.props.children = [fiber.type(fiber.props)]
 } 
@@ -156,9 +156,86 @@ function performWorkOfUnit(fiber) {
     }
     return fiber.next()
 }
+// 空闲执行 & 结束时挂载
+function workloop(deadline) {
+    let shouldYield = false
+    while(!shouldYield && nextWorkOfUnit) {
+        nextWorkOfUnit = performWorkOfUnit(nextWorkOfUnit)
+        shouldYield = deadline.timeRemaining() < 1
+    }
+    if(!nextWorkOfUnit) {
+        commitRoot()
+    }
+    requestIdleCallback(workloop)
+}
 
+// 更新dom
+function updateProps(fiber) {
+    const oldProps = fiber.alternate.props || [];
+    const newProps = fiber.props;
+    Object.keys(oldProps).forEach(prop => {
+        if(prop !== 'children') {
+            fiber.dom?.removeAttribute?.(prop)
+        }
+    })
+    Object.keys(newProps).forEach(prop => {
+        if(prop !== 'children') {
+            fiber.dom[prop] =  newProps[prop]
+        }
+    })
+} 
+// 挂载dom
+function commitRoot()  {
+    if(!root) return 
+    commitWork(root?.child)
+    currentRoot = root
+    root = null
+}
+function commitWork(fiber) {
+    if(!fiber) return 
+    // 获取有dom的parent
+    let fiberParent = fiber.parent
+    while(!fiberParent.dom) {
+        fiberParent = fiberParent.parent
+    }
+    if(fiber?.effectTag === EffectTag.UP_DATE) { 
+        updateProps(fiber)
+    }else {
+        if(fiber.dom) {
+            fiberParent.dom?.appendChild(fiber.dom)
+        }
+    }
+    commitWork(fiber.child)
+    commitWork(fiber.sibling)
+}
+
+
+
+// render 首次渲染
+function render(el:VDom, parent) {
+    nextWorkOfUnit = {
+        dom: parent,
+        props: {
+            children: [el]
+        },
+    }
+    root = nextWorkOfUnit;
+    // 开启执行
+    requestIdleCallback(workloop)
+}
+// 更新渲染
+function update() {
+    const nextFiber:FiberNode = {
+        dom: (currentRoot as FiberNode).dom,
+        props: (currentRoot as FiberNode).props,
+        alternate: currentRoot as FiberNode
+    }
+    nextWorkOfUnit = nextFiber
+    root = nextWorkOfUnit;
+}
 
 export default {
     createElement,
-    render
+    render,
+    update,
 }
