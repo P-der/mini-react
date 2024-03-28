@@ -24,7 +24,6 @@ interface FiberNode {
     effectTag?: EffectTag; // 更新类型
 }
 let nextWorkOfUnit:null | FiberNode = null
-let root: null | FiberNode = null
 let currentRoot: null | FiberNode = null // 当前需要更新的root
 let deleteFiberList:FiberNode[] = []
 let wipCurrentFiber: FiberNode
@@ -140,7 +139,7 @@ function updateHostComponent(fiber) {
 }
 // task具体执行 1 2 原操作；3 4 生成下一个task
 function performWorkOfUnit(fiber) {
-    const {type, props, parent} = fiber
+    const {type} = fiber
     const isFunctionComponent =  typeof type === 'function'
     if(isFunctionComponent) {
         updateFunctionComponent(fiber)
@@ -167,7 +166,7 @@ function workloop(deadline) {
     let shouldYield = false
     while(!shouldYield && nextWorkOfUnit) {
         nextWorkOfUnit = performWorkOfUnit(nextWorkOfUnit)
-        if(root?.sibling?.type === nextWorkOfUnit?.type) {
+        if(currentRoot?.sibling?.type === nextWorkOfUnit?.type) {
             nextWorkOfUnit = null
         }
         shouldYield = deadline.timeRemaining() < 1
@@ -195,12 +194,12 @@ function updateProps(fiber) {
 } 
 // 挂载dom
 function commitRoot()  {
-    if(!root) return 
-    commitWork(root?.child)
+    if(!currentRoot) return 
+    commitWork(currentRoot?.child)
     commitRemoveWork()
     deleteFiberList = []
-    currentRoot = root
-    root = null
+    currentRoot = currentRoot
+    currentRoot = null
 }
 function removeChild(fiber) {
     if(!fiber?.dom) {
@@ -247,7 +246,7 @@ function render(el:VDom, parent) {
             children: [el]
         },
     }
-    root = nextWorkOfUnit;
+    currentRoot = nextWorkOfUnit;
     // 开启执行
     requestIdleCallback(workloop)
 }
@@ -255,11 +254,11 @@ function render(el:VDom, parent) {
 function update() {
     let currentFiber = wipCurrentFiber
     return function update() {
-        root = {
+        currentRoot = {
            ...currentFiber,
             alternate: currentFiber as FiberNode
         }
-        nextWorkOfUnit = root
+        nextWorkOfUnit = currentRoot
     }
 }
 
