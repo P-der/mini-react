@@ -3,24 +3,54 @@
 // const App =  () => <div>mini react learn</div>
 // export default App
 import React from './core/react.ts'
-let num = 10
-const {update} = React
-const Count = () => {
+let fooNum = 0
+const Foo = () => {
+    console.log('foo')
+    const update = React.update()
+    function handleClick() {
+        fooNum ++
+        update()
+    }
+    return (
+        <div id='foo'>
+            foo
+            count: {fooNum}
+            <button onClick={handleClick}>click</button>
+        </div>
+    )
+}
+let barNum = 0
+const Bar = () => {
+    console.log('bar')
+    const update = React.update()
+    function handleClick() {
+        barNum ++
+        update()
+    }
+    return (
+        <div id='bar'>
+            bar
+            count: {barNum}
+            <button onClick={handleClick}>click</button>
+        </div>
+    )
+}
+let num = 0
+const App = () => {
+    const update = React.update()
+    console.log('app')
     function handleClick() {
         num ++
         update()
     }
     return (
-        <div>
-            count {num}
+        <div id='app'>
+            mini-react-learn
+            count: {num}
             <button onClick={handleClick}>click</button>
+            <Foo/>
+            <Bar/>
         </div>
     )
 }
-const App = () => (
-    <div id='app'>
-        mini-react-learn
-        <Count></Count>
-    </div>
-)
 export default App 
