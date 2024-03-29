@@ -13,6 +13,10 @@ enum EffectTag {
     UP_DATE = 'update',
     PLACEMENT= 'placement'
 }
+interface StateHook {
+    value: any;
+    queue: any[];
+}
 interface FiberNode {
     type?: string;
     props?: Record<string, any>;
@@ -22,12 +26,13 @@ interface FiberNode {
     parent?: FiberNode;
     alternate?: FiberNode; // 老的fiber节点
     effectTag?: EffectTag; // 更新类型
+    stateHooks?: StateHook[]
 }
 let nextWorkOfUnit:null | FiberNode = null
 let currentRoot: null | FiberNode = null // 当前需要更新的root
 let deleteFiberList:FiberNode[] = []
 let wipCurrentFiber: FiberNode
-let currentStateList = []
+let currentStateList: StateHook[] = []
 let currentStateIndex = 0
 // 创建vdom使用
 function createTextNode(text) {
@@ -267,29 +272,21 @@ function update() {
 }
 
 function useState(initValue) {
-    let currentFiber = wipCurrentFiber
-    let currentIndex = currentStateIndex
-    let oldStateHook = currentFiber.alternate?.stateHooks?.[currentIndex]
-    currentStateIndex++
-    const stateHook = {
+    let currentFiber = wipCurrentFiber // 保存当前fiber
+    let currentIndex = currentStateIndex // 保存当前index
+    let oldStateHook = currentFiber.alternate?.stateHooks?.[currentIndex] // 获取老节点
+    currentStateIndex++ // 重新计数
+    const stateHook: StateHook = {
         value: oldStateHook ? oldStateHook.value : initValue,
-        queue: oldStateHook ? oldStateHook.queue: []
+        queue: []
     }
-    stateHook.queue.forEach(action=> {
+    oldStateHook?.queue.forEach(action=> {
         stateHook.value = typeof action === 'function' ? action(stateHook.value) : action
     })
-    stateHook.queue = []
-
-    currentStateList.push(stateHook)
-
+    currentStateList[currentIndex] = stateHook
     currentFiber.stateHooks = currentStateList
-    // console.log(currentFiber.stateHooks)
     function setState(action) {
-        // const newValue = typeof action === 'function' ? action(stateHook.value) : action
-        // if(stateHook.value === newValue) return;
-        // stateHook.value = newValue
-        // console.log(currentFiber.stateHooks)
-        currentFiber.stateHooks?.[currentIndex].queue.push(action)
+        stateHook.queue.push(action)
         
         currentRoot = {
             ...currentFiber,
