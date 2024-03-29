@@ -27,6 +27,8 @@ let nextWorkOfUnit:null | FiberNode = null
 let currentRoot: null | FiberNode = null // 当前需要更新的root
 let deleteFiberList:FiberNode[] = []
 let wipCurrentFiber: FiberNode
+let currentStateList = []
+let currentStateIndex = 0
 // 创建vdom使用
 function createTextNode(text) {
     text = SimpleTypeMap.includes(typeof text) ? text: text || ''
@@ -126,6 +128,8 @@ function updateDomProps(dom, props) {
 // 根据不同类型处理组件
 function updateFunctionComponent(fiber) {
     wipCurrentFiber = fiber
+    currentStateList = []
+    currentStateIndex = 0
     fiber.props.children = [fiber.type(fiber.props)]
 } 
 function updateHostComponent(fiber) {
@@ -262,8 +266,43 @@ function update() {
     }
 }
 
+function useState(initValue) {
+    let currentFiber = wipCurrentFiber
+    let currentIndex = currentStateIndex
+    let oldStateHook = currentFiber.alternate?.stateHooks?.[currentIndex]
+    currentStateIndex++
+    const stateHook = {
+        value: oldStateHook ? oldStateHook.value : initValue,
+        queue: oldStateHook ? oldStateHook.queue: []
+    }
+    stateHook.queue.forEach(action=> {
+        stateHook.value = typeof action === 'function' ? action(stateHook.value) : action
+    })
+    stateHook.queue = []
+
+    currentStateList.push(stateHook)
+
+    currentFiber.stateHooks = currentStateList
+    // console.log(currentFiber.stateHooks)
+    function setState(action) {
+        // const newValue = typeof action === 'function' ? action(stateHook.value) : action
+        // if(stateHook.value === newValue) return;
+        // stateHook.value = newValue
+        // console.log(currentFiber.stateHooks)
+        currentFiber.stateHooks?.[currentIndex].queue.push(action)
+        
+        currentRoot = {
+            ...currentFiber,
+            alternate: currentFiber as FiberNode
+        }
+        nextWorkOfUnit = currentRoot
+    }
+    return [stateHook.value, setState]
+}
+
 export default {
     createElement,
     render,
     update,
+    useState
 }
