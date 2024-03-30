@@ -44,6 +44,10 @@ const App = () => {
         setNum((num) => num + 10)
         setClickNum((num) => num + 1)
     }
+    React.useEffect(()=> {
+        console.log(num, clickNum);
+        console.log('use effect')
+    }, [num])
     return (
         <div id='app'>
             mini-react-learn

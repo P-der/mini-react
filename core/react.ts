@@ -34,6 +34,7 @@ let deleteFiberList:FiberNode[] = []
 let wipCurrentFiber: FiberNode
 let currentStateList: StateHook[] = []
 let currentStateIndex = 0
+let effectList = []
 // 创建vdom使用
 function createTextNode(text) {
     text = SimpleTypeMap.includes(typeof text) ? text: text || ''
@@ -134,6 +135,7 @@ function updateDomProps(dom, props) {
 function updateFunctionComponent(fiber) {
     wipCurrentFiber = fiber
     currentStateList = []
+    effectList = []
     currentStateIndex = 0
     fiber.props.children = [fiber.type(fiber.props)]
 } 
@@ -206,8 +208,8 @@ function commitRoot()  {
     if(!currentRoot) return 
     commitWork(currentRoot?.child)
     commitRemoveWork()
+    commitEffect()
     deleteFiberList = []
-    currentRoot = currentRoot
     currentRoot = null
 }
 function removeChild(fiber) {
@@ -243,6 +245,23 @@ function commitWork(fiber) {
     }
     commitWork(fiber.child)
     commitWork(fiber.sibling)
+}
+function commitEffect() {
+    if(wipCurrentFiber.alternate) {
+        // update
+        const oldEffectList = wipCurrentFiber.alternate?.effectHooks || []
+        wipCurrentFiber.effectHooks?.forEach((effect, index)=> {
+            const oldEffect = oldEffectList[index]
+            const needUpdate = effect.deps.some((dep, i)=> {
+                return dep !== oldEffect.deps[i]
+            })
+            needUpdate && effect.callback()
+        })
+        
+        console.log('udpate')
+    }else {
+        wipCurrentFiber.effectHooks?.forEach(({callback})=> callback())
+    }
 }
 
 
@@ -297,9 +316,18 @@ function useState(initValue) {
     return [stateHook.value, setState]
 }
 
+function useEffect(callback, deps) {
+    let effect = {
+        callback, 
+        deps
+    }
+    effectList.push(effect)
+    wipCurrentFiber.effectHooks = effectList
+}
 export default {
     createElement,
     render,
     update,
-    useState
+    useState,
+    useEffect
 }
