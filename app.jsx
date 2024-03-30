@@ -20,21 +20,25 @@ import React from './core/react.ts'
 //     )
 // }
 // let barNum = 0
-// const Bar = () => {
-//     console.log('bar')
-//     const update = React.update()
-//     function handleClick() {
-//         barNum ++
-//         update()
-//     }
-//     return (
-//         <div id='bar'>
-//             bar
-//             count: {barNum}
-//             <button onClick={handleClick}>click</button>
-//         </div>
-//     )
-// }
+const Bar = () => {
+    console.log('bar')
+    const [num, setNum] = React.useState(10)
+    const [num1, setNum1] = React.useState(10)
+    function handleClick() {
+        setNum((num) => num + 10)
+        setNum1((num) => num + 10)
+    }
+    React.useEffect(()=> {
+        console.log('bar effect')
+    }, [num1])
+    return (
+        <div id='bar'>
+            bar
+            count: {num}
+            <button onClick={handleClick}>click</button>
+        </div>
+    )
+}
 // let num = 0
 const App = () => {
     const [num, setNum] = React.useState(10)
@@ -45,8 +49,10 @@ const App = () => {
         setClickNum((num) => num + 1)
     }
     React.useEffect(()=> {
-        console.log(num, clickNum);
-        console.log('use effect')
+        console.log('use effect, app')
+        return () =>  {
+            console.log('clean')
+        }
     }, [num])
     return (
         <div id='app'>
@@ -59,7 +65,7 @@ const App = () => {
             </div>
             <button onClick={handleClick}>click</button>
             {/* <Foo/> */}
-            {/* <Bar/> */}
+            <Bar/>
         </div>
     )
 }

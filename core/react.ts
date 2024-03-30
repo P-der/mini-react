@@ -68,6 +68,8 @@ function initChildren(fiber) {
     props?.children?.forEach((child, index) => {
         let childFiber:FiberNode
         const isSame = oldFiber?.type === child.type
+
+        // console.log(isSame, oldFiber?.type)
         if(isSame) {
             childFiber = {
                 type: child.type,
@@ -247,21 +249,32 @@ function commitWork(fiber) {
     commitWork(fiber.sibling)
 }
 function commitEffect() {
-    if(wipCurrentFiber.alternate) {
-        // update
-        const oldEffectList = wipCurrentFiber.alternate?.effectHooks || []
-        wipCurrentFiber.effectHooks?.forEach((effect, index)=> {
-            const oldEffect = oldEffectList[index]
-            const needUpdate = effect.deps.some((dep, i)=> {
-                return dep !== oldEffect.deps[i]
+    function run (fiber) {
+        if(!fiber) return
+        if(fiber.alternate) {
+            // update
+            const oldEffectList = fiber.alternate?.effectHooks || []
+            if(oldEffectList) {
+                oldEffectList.forEach((old)=> {
+                    old?.clean?.()
+                })
+            }
+            fiber.effectHooks?.forEach((effect, index)=> {
+                const oldEffect = oldEffectList[index]
+                const needUpdate = effect.deps.some((dep, i)=> {
+                    return dep !== oldEffect.deps[i]
+                })
+                needUpdate && (effect.clean = effect.callback())
             })
-            needUpdate && effect.callback()
-        })
-        
-        console.log('udpate')
-    }else {
-        wipCurrentFiber.effectHooks?.forEach(({callback})=> callback())
+        }else {
+            fiber.effectHooks?.forEach((effect)=>  {
+                effect.clean = effect.callback()
+            })
+        }
+        run(fiber.child)
+        run(fiber.sibling)
     }
+    run(currentRoot)
 }
 
 
@@ -282,7 +295,7 @@ function render(el:VDom, parent) {
 function update() {
     let currentFiber = wipCurrentFiber
     return function update() {
-        currentRoot = {
+        currentRoot = currentFiber = {
            ...currentFiber,
             alternate: currentFiber as FiberNode
         }
@@ -302,15 +315,15 @@ function useState(initValue) {
     oldStateHook?.queue.forEach(action=> {
         stateHook.value = typeof action === 'function' ? action(stateHook.value) : action
     })
-    currentStateList[currentIndex] = stateHook
+    currentStateList.push(stateHook)
     currentFiber.stateHooks = currentStateList
     function setState(action) {
-        stateHook.queue.push(action)
-        
+        currentFiber?.stateHooks?.[currentIndex].queue.push(action)
         currentRoot = {
             ...currentFiber,
-            alternate: currentFiber as FiberNode
+            alternate: currentFiber
         }
+        // console.log(currentFiber)
         nextWorkOfUnit = currentRoot
     }
     return [stateHook.value, setState]
@@ -322,7 +335,9 @@ function useEffect(callback, deps) {
         deps
     }
     effectList.push(effect)
+    // console.log(wipCurrentFiber)
     wipCurrentFiber.effectHooks = effectList
+    // console.log(2, wipCurrentFiber)
 }
 export default {
     createElement,
