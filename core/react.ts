@@ -31,7 +31,7 @@ interface FiberNode {
 let nextWorkOfUnit:null | FiberNode = null
 let currentRoot: null | FiberNode = null // 当前需要更新的root
 let deleteFiberList:FiberNode[] = []
-let wipCurrentFiber: FiberNode
+let wipCurrentFiber: FiberNode // wipFiber
 let currentStateList: StateHook[] = []
 let currentStateIndex = 0
 let effectList = []
@@ -54,6 +54,7 @@ function createElement(type, props,...children) {
             children: children.map(child => {
                 const isSimpleType = typeof child !== 'object'
                 return isSimpleType ? createTextNode(child): child
+                //  typeof child === 'array' ? : child
             })
         }
     }
@@ -61,15 +62,16 @@ function createElement(type, props,...children) {
 
 // 创建fiber使用
 // 创建fiber子节点
-function initChildren(fiber) {
+function initChildren(fiber, children) {
     let oldFiber = fiber?.alternate?.child || null
-    const {props} = fiber
     let preChild:FiberNode
-    props?.children?.forEach((child, index) => {
+    if(fiber?.type === 'ul') {
+        console.log(deleteFiberList)
+        debugger;
+    }
+    children?.forEach((child, index) => {
         let childFiber:FiberNode
-        const isSame = oldFiber?.type === child.type
-
-        // console.log(isSame, oldFiber?.type)
+        const isSame = oldFiber && oldFiber.type === child.type
         if(isSame) {
             childFiber = {
                 type: child.type,
@@ -82,16 +84,19 @@ function initChildren(fiber) {
                 effectTag: EffectTag.UP_DATE
             }
         }else {
-            // 创建
-            childFiber = {
-                type: child.type,
-                props: child.props,
-                dom: null,
-                parent: fiber,
-                sibling: null,
-                child: null,
-                effectTag: EffectTag.PLACEMENT
+            if(child) {
+                // 创建
+                childFiber = {
+                    type: child.type,
+                    props: child.props,
+                    dom: null,
+                    parent: fiber,
+                    sibling: null,
+                    child: null,
+                    effectTag: EffectTag.PLACEMENT
+                }
             }
+            
             oldFiber && deleteFiberList.push(oldFiber)
         }
         if(oldFiber) {
@@ -135,11 +140,13 @@ function updateDomProps(dom, props) {
 }
 // 根据不同类型处理组件
 function updateFunctionComponent(fiber) {
-    wipCurrentFiber = fiber
     currentStateList = []
     effectList = []
     currentStateIndex = 0
-    fiber.props.children = [fiber.type(fiber.props)]
+    wipCurrentFiber = fiber
+    const children = [fiber.type(fiber.props)]
+     // 3 遍历children
+    initChildren(fiber, children)
 } 
 function updateHostComponent(fiber) {
     const {type, props = []} = fiber
@@ -149,6 +156,9 @@ function updateHostComponent(fiber) {
         // 2 更新prop
         updateDomProps(fiber.dom, props)
     }
+     // 3 遍历children
+     const children = fiber.props.children;
+     initChildren(fiber, children)
 }
 // task具体执行 1 2 原操作；3 4 生成下一个task
 function performWorkOfUnit(fiber) {
@@ -160,8 +170,6 @@ function performWorkOfUnit(fiber) {
         updateHostComponent(fiber)
     }
 
-    // 3 遍历children
-    initChildren(fiber)
     // 4 返回下一个fiber
     fiber.next = (deep = false) => {
         if(!deep && fiber.child) {
@@ -208,8 +216,9 @@ function updateProps(fiber) {
 // 挂载dom
 function commitRoot()  {
     if(!currentRoot) return 
-    commitWork(currentRoot?.child)
     commitRemoveWork()
+    console.log(currentRoot)
+    commitWork(currentRoot?.child)
     commitEffect()
     deleteFiberList = []
     currentRoot = null
@@ -318,12 +327,13 @@ function useState(initValue) {
     currentStateList.push(stateHook)
     currentFiber.stateHooks = currentStateList
     function setState(action) {
-        currentFiber?.stateHooks?.[currentIndex].queue.push(action)
+        const newValue = typeof action === 'function' ? action(stateHook.value) : action
+        if(newValue === stateHook.value) return
+        stateHook.queue.push(typeof action === 'function'? action: () => action)
         currentRoot = {
             ...currentFiber,
             alternate: currentFiber
         }
-        // console.log(currentFiber)
         nextWorkOfUnit = currentRoot
     }
     return [stateHook.value, setState]
@@ -335,9 +345,8 @@ function useEffect(callback, deps) {
         deps
     }
     effectList.push(effect)
-    // console.log(wipCurrentFiber)
     wipCurrentFiber.effectHooks = effectList
-    // console.log(2, wipCurrentFiber)
+    console.log(2, '最新的')
 }
 export default {
     createElement,

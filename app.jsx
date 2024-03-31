@@ -3,23 +3,7 @@
 // const App =  () => <div>mini react learn</div>
 // export default App
 import React from './core/react.ts'
-// let fooNum = 0
-// const Foo = () => {
-//     console.log('foo')
-//     const update = React.update()
-//     function handleClick() {
-//         fooNum ++
-//         update()
-//     }
-//     return (
-//         <div id='foo'>
-//             foo
-//             count: {fooNum}
-//             <button onClick={handleClick}>click</button>
-//         </div>
-//     )
-// }
-// let barNum = 0
+
 const Bar = () => {
     console.log('bar')
     const [num, setNum] = React.useState(10)
@@ -41,31 +25,88 @@ const Bar = () => {
 }
 // let num = 0
 const App = () => {
-    const [num, setNum] = React.useState(10)
-    const [clickNum, setClickNum] = React.useState(1)
-    console.log('app')
+    const [activeType, setActiveType] = React.useState('all')
+    const [inputText, setInputText] = React.useState('')
+    const [list, setList] = React.useState([])
+    const typeList = [
+        {
+            text: '全部',
+            id: 'all'
+        },
+        {
+            text: '未完成',
+            id: 'pending'
+        },
+        {
+            text: '完成',
+            id: 'done'
+        }
+    ]
+    // const [showList, setShowList] = React.useState([])
+    console.log(list)
+    const showList = list.filter(item=> {
+        if(activeType === 'all') return true
+        return activeType === item.type
+    })
+
+    
     function handleClick() {
         setNum((num) => num + 10)
         setClickNum((num) => num + 1)
     }
-    React.useEffect(()=> {
-        console.log('use effect, app')
-        return () =>  {
-            console.log('clean')
-        }
-    }, [num])
+    function handleInput(e) {
+        setInputText(e.target.value)
+        console.log(inputText, e.target.value)
+    }
+    function handleAddList() {
+        const useInput = inputText;
+        console.log(useInput)
+        setList((list)=> {
+            return list.concat([{
+                text: 'xxx',
+                type: 'pending',
+                id: list.length
+            }])
+        })
+        setInputText('')
+    }
+    function handleChangeType(type) {
+        setActiveType(type.id)
+    }
+    function handleItemType(item) {
+        setList((list)=> {
+            list[item.id].type = 'done'
+            return list
+        })
+    }
     return (
         <div id='app'>
             mini-react-learn
-            <div>
-                count: {num}
+            <input value={inputText} onInput={handleInput}></input>
+            <button onClick={handleAddList}>添加</button>
+            <div class='tab'>
+                {
+                    ...typeList.map((type)=> {
+                        return (
+                            <div class='type' onClick={()=>handleChangeType(type)}>
+                                <input type="radio" id={type.id} name='type' value={type.id} checked={type.id === activeType} />
+                                <label for={type.id}>{type.text}</label>
+                            </div>
+                        )
+                    })
+                }
+               
             </div>
-            <div>
-                click: {clickNum}
-            </div>
-            <button onClick={handleClick}>click</button>
-            {/* <Foo/> */}
-            <Bar/>
+            <ul class='list'>
+                {
+                    ...showList.map((item, index) => {
+                        return <li>
+                            {item.text}
+                            {item.type === 'pending' &&<button onClick={()=> handleItemType(item, index)}>done</button>}
+                            </li>
+                    })
+                }
+            </ul>
         </div>
     )
 }
